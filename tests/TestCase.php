@@ -33,7 +33,8 @@ abstract class TestCase extends OrchestraTestCase
     {
         $app['config']->set('ai.default', 'openai');
         $app['config']->set('ai.providers.openai', ['driver' => 'openai', 'key' => 'test-key']);
-        $app['config']->set('ai.providers.anthropic', ['driver' => 'anthropic', 'key' => 'test-key']);
-        $app['config']->set('ai.providers.openrouter', ['driver' => 'openrouter', 'key' => 'test-key']);
+        // Pin the text models: the SDK's own defaults move between releases (laravel/ai 1.4 changed both).
+        $app['config']->set('ai.providers.anthropic', ['driver' => 'anthropic', 'key' => 'test-key', 'models' => ['text' => ['default' => 'claude-sonnet-5']]]);
+        $app['config']->set('ai.providers.openrouter', ['driver' => 'openrouter', 'key' => 'test-key', 'models' => ['text' => ['default' => 'anthropic/claude-sonnet-5']]]);
     }
 }

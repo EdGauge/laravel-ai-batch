@@ -6,7 +6,9 @@ use AiBatch\BatchManager;
 use AiBatch\BatchRequestFailed;
 use AiBatch\BatchRequestFailureType;
 use AiBatch\BatchStatus;
+use AiBatch\Contracts\BatchStore;
 use AiBatch\Exceptions\BatchNotReadyException;
+use AiBatch\Exceptions\BatchStoreFailedException;
 use AiBatch\Requests\Resolver;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -174,3 +176,76 @@ test('reading results before the batch ended throws', function (): void {
 
     Batch::find('msgbatch_1', 'anthropic')->results();
 })->throws(BatchNotReadyException::class);
+
+test('the resolved body is the body the synchronous path posts', function (): void {
+    Http::fake(['api.anthropic.com/v1/messages' => Http::response([
+        'id' => 'msg_sync', 'type' => 'message', 'role' => 'assistant', 'model' => 'claude-sonnet-5',
+        'content' => [['type' => 'text', 'text' => '{"sentiment":"positive"}']],
+        'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 11, 'output_tokens' => 5],
+    ])]);
+
+    (new StructuredAgent)->prompt('Great stuff', provider: 'anthropic');
+
+    $posted = null;
+
+    Http::assertSent(function (Request $request) use (&$posted): bool {
+        $posted = $request->data();
+
+        return $request->url() === 'https://api.anthropic.com/v1/messages';
+    });
+
+    expect((new StructuredAgent)->resolve('Great stuff', provider: 'anthropic')->body)->toBe($posted);
+});
+
+test('a native structured reply is decoded in the submitting process', function (): void {
+    Http::fake([
+        'api.anthropic.com/v1/messages/batches' => Http::response(anthropicBatch()),
+        'api.anthropic.com/v1/messages/batches/msgbatch_1' => Http::response(anthropicBatch('ended', ['processing' => 0, 'succeeded' => 1], [
+            'results_url' => 'https://api.anthropic.com/v1/messages/batches/msgbatch_1/results',
+        ])),
+        'api.anthropic.com/v1/messages/batches/msgbatch_1/results' => Http::response(
+            anthropicResultLine('s', [['type' => 'text', 'text' => '{"sentiment":"negative"}']])."\n",
+        ),
+    ]);
+
+    $batch = Batch::of(['s' => (new StructuredAgent)->resolve('Awful', provider: 'anthropic')])->submit();
+
+    $result = $batch->refresh()->results()['s'];
+
+    expect($result)->toBeInstanceOf(StructuredAgentResponse::class)
+        ->and($result['sentiment'])->toBe('negative')
+        ->and($result->usage->inputTokens)->toBe(11)
+        ->and($result->meta->model)->toBe('claude-sonnet-5');
+});
+
+test('a batch the provider accepted is not lost when its context cannot be stored', function (): void {
+    Http::fake(['api.anthropic.com/v1/messages/batches' => Http::response(anthropicBatch())]);
+
+    app()->instance(BatchStore::class, new class implements BatchStore
+    {
+        public function store(BatchHandle $batch, array $requests): void
+        {
+            throw new RuntimeException('database is down');
+        }
+
+        public function contexts(string $batchId, string $provider): array
+        {
+            return [];
+        }
+
+        public function forget(string $batchId, string $provider): void {}
+    });
+    app()->forgetInstance(BatchManager::class);
+    app()->forgetInstance(Resolver::class);
+    Batch::clearResolvedInstance(BatchManager::class);
+
+    try {
+        Batch::of(['one' => app(Resolver::class)->resolve(new AnthropicAgent, 'Text one')])->submit();
+        $this->fail('The store failure was swallowed.');
+    } catch (BatchStoreFailedException $exception) {
+        expect($exception->handle->id)->toBe('msgbatch_1')
+            ->and($exception->handle->provider->name())->toBe('anthropic')
+            ->and($exception->getPrevious()?->getMessage())->toBe('database is down')
+            ->and($exception->getMessage())->toContain('msgbatch_1');
+    }
+});

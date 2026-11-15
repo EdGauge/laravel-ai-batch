@@ -32,7 +32,6 @@ class AiBatchServiceProvider extends ServiceProvider
         });
 
         // Same pattern as laravel/ai's AiManager: extend() registrations must outlive a request, so this stays a singleton.
-        // @phpstan-ignore larastan.octaneCompatibility
         $this->app->singleton(BatchManager::class, fn (Container $app): BatchManager => new BatchManager(
             $app, $app->make(Dispatcher::class), $app->make(BatchStore::class),
         ));
@@ -44,7 +43,9 @@ class AiBatchServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        if ($this->app['config']->get('ai-batch.migrations', true)) {
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        }
 
         if ($this->app->runningInConsole()) {
             $this->publishes([

@@ -10,3 +10,11 @@ parameters:
     treatPhpDocTypesAsCertain: false
     checkOctaneCompatibility: true
     checkModelProperties: true
+    ignoreErrors:
+        # BatchManager is a singleton on purpose (extend() registrations outlive a request, like
+        # laravel/ai's AiManager). Kept here rather than inline: the lowest supported Larastan has
+        # no such rule, and an inline ignore would then be reported as unmatched.
+        -
+            identifier: larastan.octaneCompatibility
+            path: src/AiBatchServiceProvider.php
+            reportUnmatched: false
