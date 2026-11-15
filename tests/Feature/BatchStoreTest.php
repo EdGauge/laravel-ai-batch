@@ -1,5 +1,6 @@
 <?php
 
+use AiBatch\AiBatchServiceProvider;
 use AiBatch\Batch;
 use AiBatch\BatchHandle;
 use AiBatch\BatchStatus;
@@ -58,4 +59,20 @@ test('faked batches still write context to the store', function (): void {
     $handle = Batch::of(['a' => (new AssistantAgent)->resolve('Hi')])->submit();
 
     expect(Batch::store()->contexts($handle->id, 'openai'))->toHaveKey('a');
+});
+
+test('the migration can be left to the application', function (): void {
+    $migrator = app('migrator');
+    $package = realpath(__DIR__.'/../../database/migrations');
+
+    (fn () => $this->paths = [])->call($migrator);
+    config(['ai-batch.migrations' => false]);
+    (new AiBatchServiceProvider(app()))->boot();
+
+    expect(array_map('realpath', $migrator->paths()))->not->toContain($package);
+
+    config(['ai-batch.migrations' => true]);
+    (new AiBatchServiceProvider(app()))->boot();
+
+    expect(array_map('realpath', $migrator->paths()))->toContain($package);
 });

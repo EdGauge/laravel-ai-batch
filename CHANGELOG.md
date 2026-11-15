@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0.1 (EdGauge fork, 2026-11-15)
+
+Fork of [pietervanleuven/laravel-ai-batch](https://github.com/pietervanleuven/laravel-ai-batch) at 0.2.0, maintained at [EdGauge/laravel-ai-batch](https://github.com/EdGauge/laravel-ai-batch).
+
+### Changes
+
+* require `laravel/ai` ^1.3; the suite passes against 1.3.0 and 1.4.0
+* `ai-batch.migrations` (default true): an application that owns the `ai_batch_requests` migration can stop the package registering its own
+* `BatchManager::submit()` throws `BatchStoreFailedException`, carrying the `BatchHandle`, when the provider accepted the batch but its request context could not be stored, so the paid batch can be recorded or cancelled
+* tests: the resolved Anthropic body equals the body the synchronous path posts; a native structured reply decodes in the submitting process; the text models are pinned in the test config, since laravel/ai 1.4 changed the providers' defaults
+* the Larastan Octane ignore moved from an inline comment to `phpstan.neon.dist`, so the lowest supported Larastan does not report it as unmatched
+
 ## [0.2.0](https://github.com/pietervanleuven/laravel-ai-batch/compare/v0.1.1...v0.2.0) (2026-09-27)
 
 

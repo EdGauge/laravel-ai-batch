@@ -37,6 +37,19 @@ return [
 
     'store' => env('AI_BATCH_STORE', 'database'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Package Migrations
+    |--------------------------------------------------------------------------
+    |
+    | Whether the package registers its own migration. Set it to false when
+    | the application owns the table through a migration of its own (for
+    | example after publishing it with the "ai-batch-migrations" tag).
+    |
+    */
+
+    'migrations' => (bool) env('AI_BATCH_MIGRATIONS', true),
+
     'database' => [
         'connection' => env('AI_BATCH_DB_CONNECTION'),
         'table' => 'ai_batch_requests',

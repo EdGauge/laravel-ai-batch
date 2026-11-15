@@ -9,6 +9,7 @@ use AiBatch\Events\BatchRequestCompleted;
 use AiBatch\Events\BatchRequestErrored;
 use AiBatch\Events\BatchSubmitted;
 use AiBatch\Exceptions\BatchException;
+use AiBatch\Exceptions\BatchStoreFailedException;
 use AiBatch\Exceptions\UnsupportedBatchProviderException;
 use AiBatch\Gateway\FakeBatchGateway;
 use AiBatch\Requests\ResolvedRequest;
@@ -23,6 +24,7 @@ use Laravel\Ai\Events\AgentPrompted;
 use Laravel\Ai\Gateway\FakeTextGateway;
 use Laravel\Ai\Responses\AgentResponse;
 use PHPUnit\Framework\Assert as PHPUnit;
+use Throwable;
 
 class BatchManager
 {
@@ -83,7 +85,11 @@ class BatchManager
             ->submitBatch($provider, $requests, $options)
             ->withRequests($requests);
 
-        $this->store->store($handle, $requests);
+        try {
+            $this->store->store($handle, $requests);
+        } catch (Throwable $exception) {
+            throw new BatchStoreFailedException($handle, $exception);
+        }
 
         $this->events->dispatch(new BatchSubmitted($handle, $requests));
 

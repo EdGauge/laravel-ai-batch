@@ -45,6 +45,9 @@ php artisan vendor:publish --tag=ai-batch-migrations
 Set `AI_BATCH_STORE=array` to skip the table; results read in another process then lose invocation ids
 and need `structured:` passed explicitly (see below).
 
+An application that owns the `ai_batch_requests` migration itself can set `ai-batch.migrations` (or
+`AI_BATCH_MIGRATIONS`) to `false`, and the package no longer registers its own.
+
 ## Resolving requests
 
 Add the `Resolvable` trait to any agent:
